@@ -29,6 +29,8 @@ jobs:
           black --check .
 
       - name: Test
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: pytest -q
 
   build-image:
