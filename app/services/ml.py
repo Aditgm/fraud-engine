@@ -112,7 +112,8 @@ def predict(
     feature_columns = model_artifact["feature_columns"]
 
     model_input = pd.DataFrame([features])[feature_columns]
-    score = float(model.predict_proba(model_input)[0, 1])
+    raw_score = float(model.predict_proba(model_input)[0, 1])
+    score = float(np.clip(raw_score, 0.0, 1.0))
     is_fraud = score >= threshold
 
     return score, is_fraud, threshold

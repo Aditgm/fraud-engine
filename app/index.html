@@ -511,8 +511,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Transaction Amount</label>
-          <input type="number" class="form-input" id="amount" min="0" step="0.01" value="145.90" placeholder="Transaction amount" />
+          <label class="form-label">Transaction Amount (INR - Rs)</label>
+          <input type="number" class="form-input" id="amount" min="0" step="0.01" value="145.90" placeholder="Transaction amount in rupees" />
         </div>
 
         <div class="form-group">
@@ -589,6 +589,11 @@
       const responseOutput = $('responseOutput');
       const healthBadges = $('healthBadges');
       const toastContainer = $('toastContainer');
+      const inrFormatter = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2
+      });
 
       // Initialize
       timestampEl.value = new Date().toISOString();
@@ -615,6 +620,14 @@
           animation: { duration: 500, easing: 'easeOutQuart' }
         };
 
+        const amountChartOptions = JSON.parse(JSON.stringify(chartOptions));
+        amountChartOptions.scales.y.ticks.callback = (value) => {
+          if (typeof value !== 'number') return value;
+          if (value >= 100000) return `Rs ${(value / 100000).toFixed(1)}L`;
+          if (value >= 1000) return `Rs ${(value / 1000).toFixed(1)}K`;
+          return `Rs ${value.toFixed(0)}`;
+        };
+
         amountChart = new Chart($('amountChart'), {
           type: 'line',
           data: {
@@ -627,7 +640,7 @@
               borderWidth: 2
             }]
           },
-          options: chartOptions
+          options: amountChartOptions
         });
 
         latencyChart = new Chart($('latencyChart'), {
@@ -680,15 +693,16 @@
       }
 
       function updateGauge(score, isFraud) {
+        const boundedScore = Math.max(0, Math.min(1, Number(score) || 0));
         const circumference = 2 * Math.PI * 40;
-        const offset = circumference - (score * circumference);
+        const offset = circumference - (boundedScore * circumference);
         
         gaugeFill.style.strokeDashoffset = offset;
         
-        if (score < 0.4) {
+        if (boundedScore < 0.4) {
           gaugeFill.style.stroke = '#00d4aa';
           gaugeScore.style.color = '#00d4aa';
-        } else if (score < 0.7) {
+        } else if (boundedScore < 0.7) {
           gaugeFill.style.stroke = '#ffb454';
           gaugeScore.style.color = '#ffb454';
         } else {
@@ -696,7 +710,7 @@
           gaugeScore.style.color = '#ff5c87';
         }
         
-        gaugeScore.textContent = `${(score * 100).toFixed(1)}%`;
+        gaugeScore.textContent = `${(boundedScore * 100).toFixed(1)}%`;
       }
 
       function updateStatus(score, isFraud, threshold) {
@@ -771,11 +785,19 @@
             return;
           }
 
-          updateGauge(data.score, data.is_fraud);
-          updateStatus(data.score, data.is_fraud, data.threshold);
-          updateCharts(data.amount, latency);
-          
-          showToast(data.is_fraud ? 'Fraud detected!' : 'Transaction approved', data.is_fraud ? 'error' : 'success');
+          const boundedScore = Math.max(0, Math.min(1, Number(data.score) || 0));
+
+          data.score = boundedScore;
+          responseOutput.textContent = JSON.stringify(data, null, 2);
+
+          updateGauge(boundedScore, data.is_fraud);
+          updateStatus(boundedScore, data.is_fraud, data.threshold);
+          updateCharts(payload.amount, latency);
+
+          showToast(
+            `${data.is_fraud ? 'Fraud detected' : 'Transaction approved'} at ${inrFormatter.format(payload.amount)}`,
+            data.is_fraud ? 'error' : 'success'
+          );
           
         } catch (e) {
           showToast('Network error - check server connection', 'error');
