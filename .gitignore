@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+artifacts/*.pkl
+artifacts/*.json
+artifacts/benchmarks/
+artifacts/synthetic_transactions.csv
+.vscode/
+.DS_Store

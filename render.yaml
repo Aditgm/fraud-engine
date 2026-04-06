@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fraud-engine-api
+    runtime: python
+    plan: starter
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt && python training/generate_synthetic_data.py --output artifacts/synthetic_transactions.csv --rows 300000 --users 5000 --days 365 --seed 42 && python training/train_model.py --data-path artifacts/synthetic_transactions.csv --model-output artifacts/fraud_model.pkl --window-size 5
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: REDIS_WINDOW_SIZE
+        value: "5"
+      - key: MODEL_PATH
+        value: artifacts/fraud_model.pkl
+      - key: MODEL_VERSION
+        value: xgboost-v1

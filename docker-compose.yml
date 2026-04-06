@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    container_name: fraud-engine-api
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      REDIS_WINDOW_SIZE: 5
+      MODEL_PATH: artifacts/fraud_model.pkl
+      API_KEY: local-dev-key
+      MODEL_VERSION: xgboost-v1
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: fraud-engine-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

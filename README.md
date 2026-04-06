@@ -1,0 +1,226 @@
+# Real-Time Fraud Detection Engine with Feature Caching
+
+A production-minded ML system that combines stateful online feature engineering with low-latency model inference.
+
+This project demonstrates:
+- System design for real-time fraud scoring.
+- Training-serving feature parity to avoid skew.
+- Async API + Redis state cache for high throughput.
+- Containerization, CI/CD, observability, and load testing.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A[Client Request] --> B[FastAPI Inference API]
+  B --> C[(Redis State Store)]
+  B --> D[XGBoost Model]
+  D --> B
+  C --> B
+  B --> E[Fraud Score + Decision]
+  B --> F[/metrics for Prometheus]
+```
+
+## Project Structure
+
+```text
+fraud-engine/
+  app/
+    __init__.py
+    main.py
+    redis_client.py
+    schemas.py
+  training/
+    train_model.py
+  tests/
+    test_api.py
+  loadtest/
+    locustfile.py
+  artifacts/
+    .gitkeep
+  .github/workflows/
+    deploy.yml
+  .dockerignore
+  .env.example
+  .gitignore
+  docker-compose.yml
+  Dockerfile
+  requirements.txt
+  README.md
+```
+
+## Step 1: Install Dependencies
+
+```bash
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Step 2: Train Model with Historical Features
+
+The training pipeline builds rolling history features so inference receives the exact same feature schema.
+
+If you do not have an external dataset ready, generate a realistic synthetic year of transactions first:
+
+```bash
+python training/generate_synthetic_data.py --output artifacts/synthetic_transactions.csv --rows 300000 --users 5000 --days 365 --seed 42
+python training/train_model.py --data-path artifacts/synthetic_transactions.csv --model-output artifacts/fraud_model.pkl --window-size 5
+```
+
+```bash
+python training/train_model.py --data-path data/transactions.csv --model-output artifacts/fraud_model.pkl --window-size 5
+```
+
+Notes:
+- If your dataset has no user_id, the script synthesizes user IDs.
+- If your dataset has no timestamp, a deterministic sequence is generated.
+- Label and amount columns are auto-detected for common names (Class, is_fraud, Amount, etc.).
+
+## Step 3: Run the API + Redis Locally
+
+```bash
+docker-compose up --build
+```
+
+API endpoints:
+- Frontend UI: http://localhost:8000/
+- Health: http://localhost:8000/health
+- Predict: http://localhost:8000/predict
+- Metrics: http://localhost:8000/metrics
+- Swagger: http://localhost:8000/docs
+
+Example prediction:
+
+```bash
+curl -X POST "http://localhost:8000/predict" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: local-dev-key" \
+  -d '{
+    "user_id": "user_42",
+    "amount": 149.99,
+    "timestamp": "2026-03-30T10:15:00Z"
+  }'
+```
+
+You can also use the built-in frontend UI at / to submit requests and view scores without writing curl commands.
+
+## Step 4: Security, Monitoring, and Reliability
+
+Security:
+- API key required for /predict via x-api-key header.
+- Configure API_KEY from env in real environments.
+
+Monitoring:
+- prediction_requests_total
+- fraud_detected_total
+- prediction_latency_seconds (histogram)
+
+Reliability:
+- Redis is the default online state store.
+- In local/CI fallback mode, an in-memory store keeps tests and startup resilient.
+
+## Step 5: CI/CD with GitHub Actions
+
+Workflow file: .github/workflows/deploy.yml
+
+Pipeline stages:
+1. Lint: ruff + black --check
+2. Test: pytest
+3. Build: Docker image
+4. Push: Docker Hub image on main
+
+Required repository secrets:
+- DOCKERHUB_USERNAME
+- DOCKERHUB_TOKEN
+
+## Step 6: Cloud Deployment Strategy (AWS)
+
+Recommended production setup:
+1. API: AWS App Runner or ECS Fargate for containerized FastAPI.
+2. State Store: ElastiCache for Redis (managed + HA).
+3. Model Artifact: S3 (set MODEL_S3_URI and load at startup).
+4. Metrics: scrape /metrics with Prometheus and visualize in Grafana.
+
+## Step 7: Load Testing for Portfolio Proof
+
+Run Locust:
+
+```bash
+locust -f loadtest/locustfile.py --host http://localhost:8000
+```
+
+Suggested portfolio benchmark target:
+- p99 latency under 100 ms at 100+ concurrent users.
+
+Add screenshots/plots to your README:
+- Requests per second vs latency.
+- Error rate under load.
+
+## Step 8: Latest Benchmark (Real Local Run)
+
+Benchmark profile used for both runs:
+- Duration: 2 minutes
+- Users: 100
+- Spawn rate: 10 users/sec
+- Endpoint: POST /predict
+
+Baseline run (2026-03-30, fallback model path):
+- Total requests: 27,715
+- Failure rate: 0.00%
+- Throughput: 236.57 req/s
+- p50 latency: 320 ms
+- p95 latency: 480 ms
+- p99 latency: 550 ms
+
+Model-backed run (2026-03-31, trained XGBoost artifact):
+- Total requests: 14,959
+- Failure rate: 0.00%
+- Throughput: 125.79 req/s
+- p50 latency: 690 ms
+- p95 latency: 890 ms
+- p99 latency: 1000 ms
+
+Notes:
+- The model-backed run is the realistic serving-path benchmark and should be used in interview discussion.
+- The baseline run is still useful to illustrate compute overhead between fallback scoring and real model inference.
+
+Raw artifacts (generated by Locust):
+- artifacts/benchmarks/local-2026-03-30.html
+- artifacts/benchmarks/local-2026-03-30_stats.csv
+- artifacts/benchmarks/local-2026-03-31-model.html
+- artifacts/benchmarks/local-2026-03-31-model_stats.csv
+- artifacts/benchmarks/local-2026-03-31-model_stats_history.csv
+- artifacts/benchmarks/local-2026-03-31-model_failures.csv
+
+Detailed benchmark write-ups:
+- artifacts/benchmarks/benchmark-report-2026-03-30.md
+- artifacts/benchmarks/benchmark-report-2026-03-31-model.md
+
+Re-run command:
+
+```bash
+locust -f loadtest/locustfile.py --host http://127.0.0.1:8000 --headless -u 100 -r 10 -t 2m --csv artifacts/benchmarks/local-2026-03-30 --csv-full-history --html artifacts/benchmarks/local-2026-03-30.html
+```
+
+## Step 9: Deployment for Interview Demo
+
+For a public interviewer-visible demo, use one of these paths:
+1. Fastest: Render + Upstash Redis (quickest public URL).
+2. Production-style: AWS App Runner + ElastiCache + S3 model artifact.
+
+Full step-by-step guide:
+- docs/deployment-for-interview.md
+
+## Why This Is Hiring-Grade
+
+- Stateful online features show practical fraud modeling understanding.
+- Training-serving parity reduces real-world model drift and skew.
+- Async API + Redis supports high throughput and low latency.
+- CI/CD, observability, and load testing show MLOps maturity.
+- Security and data privacy notes align with production standards.
+
+## Data Privacy Note
+
+In production, user identifiers should be hashed or tokenized before being written to Redis to reduce PII risk.

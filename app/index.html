@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fraud Detection Engine | Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg-primary: #0a0e17;
+        --bg-secondary: #0f1520;
+        --bg-tertiary: #161d2b;
+        --glass-bg: rgba(22, 29, 43, 0.6);
+        --glass-border: rgba(99, 179, 237, 0.15);
+        --accent-teal: #00d4aa;
+        --accent-amber: #ffb454;
+        --accent-red: #ff5c87;
+        --accent-blue: #63b3ed;
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --shadow-glow-teal: 0 0 20px rgba(0, 212, 170, 0.3);
+        --shadow-glow-red: 0 0 20px rgba(255, 92, 135, 0.3);
+        --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+          radial-gradient(circle at 20% 20%, rgba(0, 212, 170, 0.08) 0%, transparent 40%),
+          radial-gradient(circle at 80% 80%, rgba(99, 179, 237, 0.06) 0%, transparent 40%),
+          radial-gradient(circle at 60% 30%, rgba(255, 180, 84, 0.05) 0%, transparent 35%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .grid-bg {
+        position: fixed;
+        inset: 0;
+        background-image: 
+          linear-gradient(rgba(99, 179, 237, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(99, 179, 237, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .container {
+        position: relative;
+        z-index: 1;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px;
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 1fr 1.4fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      .glass-panel {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 28px;
+        transition: all var(--transition-normal);
+        animation: slideUp 0.6s ease-out forwards;
+        opacity: 0;
+      }
+
+      .glass-panel:hover {
+        border-color: rgba(99, 179, 237, 0.25);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .glass-panel:nth-child(1) { animation-delay: 0ms; }
+      .glass-panel:nth-child(2) { animation-delay: 100ms; }
+      .glass-panel:nth-child(3) { animation-delay: 200ms; }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .header-section {
+        grid-column: 1 / -1;
+        padding: 20px 28px;
+      }
+
+      h1 {
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-teal) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        color: var(--text-secondary);
+        margin-top: 8px;
+        font-size: 0.95rem;
+        max-width: 600px;
+      }
+
+      .status-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        font-family: 'JetBrains Mono', monospace;
+        transition: all var(--transition-fast);
+      }
+
+      .badge.ok {
+        background: rgba(0, 212, 170, 0.1);
+        border: 1px solid rgba(0, 212, 170, 0.3);
+        color: var(--accent-teal);
+      }
+
+      .badge.warn {
+        background: rgba(255, 180, 84, 0.1);
+        border: 1px solid rgba(255, 180, 84, 0.3);
+        color: var(--accent-amber);
+      }
+
+      .badge.error {
+        background: rgba(255, 92, 135, 0.1);
+        border: 1px solid rgba(255, 92, 135, 0.3);
+        color: var(--accent-red);
+      }
+
+      .form-section {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .form-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+      }
+
+      .form-input {
+        background: var(--bg-tertiary);
+        border: 1px solid rgba(99, 179, 237, 0.15);
+        border-radius: 10px;
+        padding: 14px 16px;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        transition: all var(--transition-fast);
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: var(--accent-teal);
+        box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+      }
+
+      .form-input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .button-group {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .btn {
+        padding: 14px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent-teal) 0%, #00b894 100%);
+        color: #0a0e17;
+        box-shadow: var(--shadow-glow-teal);
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 0 30px rgba(0, 212, 170, 0.4);
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid rgba(99, 179, 237, 0.15);
+      }
+
+      .btn-secondary:hover {
+        border-color: rgba(99, 179, 237, 0.3);
+      }
+
+      .btn-loading {
+        position: relative;
+        pointer-events: none;
+      }
+
+      .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .dashboard-section {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .gauge-container {
+        position: relative;
+        width: 100%;
+        height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .gauge-value {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 2;
+      }
+
+      .gauge-score {
+        font-size: 3.5rem;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1;
+        transition: all var(--transition-slow);
+      }
+
+      .gauge-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .gauge-svg {
+        width: 200px;
+        height: 200px;
+        transform: rotate(-90deg);
+      }
+
+      .gauge-bg {
+        fill: none;
+        stroke: var(--bg-tertiary);
+        stroke-width: 12;
+      }
+
+      .gauge-fill {
+        fill: none;
+        stroke-width: 12;
+        stroke-linecap: round;
+        transition: stroke-dashoffset var(--transition-slow), stroke var(--transition-slow);
+        filter: drop-shadow(0 0 8px currentColor);
+      }
+
+      .status-indicator {
+        padding: 16px 20px;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all var(--transition-slow);
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      .status-indicator.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .status-safe {
+        background: rgba(0, 212, 170, 0.1);
+        border: 1px solid rgba(0, 212, 170, 0.3);
+        color: var(--accent-teal);
+      }
+
+      .status-fraud {
+        background: rgba(255, 92, 135, 0.1);
+        border: 1px solid rgba(255, 92, 135, 0.3);
+        color: var(--accent-red);
+        box-shadow: var(--shadow-glow-red);
+      }
+
+      .charts-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 8px;
+      }
+
+      .chart-card {
+        background: var(--bg-tertiary);
+        border-radius: 12px;
+        padding: 16px;
+      }
+
+      .chart-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+      }
+
+      .chart-canvas {
+        width: 100% !important;
+        height: 120px !important;
+      }
+
+      .response-panel {
+        margin-top: 8px;
+        background: var(--bg-tertiary);
+        border-radius: 12px;
+        padding: 16px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .response-panel pre {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .toast-container {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .toast {
+        padding: 14px 20px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        animation: toastSlide 0.3s ease-out forwards;
+        max-width: 320px;
+      }
+
+      @keyframes toastSlide {
+        from {
+          opacity: 0;
+          transform: translateX(100px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .toast.success {
+        background: rgba(0, 212, 170, 0.15);
+        border: 1px solid rgba(0, 212, 170, 0.4);
+        color: var(--accent-teal);
+      }
+
+      .toast.error {
+        background: rgba(255, 92, 135, 0.15);
+        border: 1px solid rgba(255, 92, 135, 0.4);
+        color: var(--accent-red);
+      }
+
+      @media (max-width: 1024px) {
+        .container {
+          grid-template-columns: 1fr;
+        }
+        
+        .charts-container {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--text-muted);
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid-bg"></div>
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <div class="container">
+      <div class="glass-panel header-section">
+        <h1>Streaming Fraud Detection Engine</h1>
+        <p class="subtitle">Real-time transaction risk analysis with rolling window feature engineering and gradient boosted decision trees.</p>
+        <div class="status-badges" id="healthBadges">
+          <span class="badge warn">Loading system health...</span>
+        </div>
+      </div>
+
+      <div class="glass-panel form-section">
+        <div class="form-group">
+          <label class="form-label">User ID</label>
+          <input type="text" class="form-input" id="userId" value="demo_user_17" placeholder="Enter user identifier" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Transaction Amount</label>
+          <input type="number" class="form-input" id="amount" min="0" step="0.01" value="145.90" placeholder="Transaction amount" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Timestamp (ISO 8601)</label>
+          <input type="text" class="form-input" id="timestamp" placeholder="YYYY-MM-DDTHH:MM:SS.sssZ" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="text" class="form-input" id="apiKey" value="local-dev-key" placeholder="API authentication key" />
+        </div>
+
+        <div class="button-group">
+          <button class="btn btn-primary" id="predictBtn">
+            <span id="btnText">Analyze Transaction</span>
+          </button>
+          <button class="btn btn-secondary" id="nowBtn">Now</button>
+        </div>
+      </div>
+
+      <div class="glass-panel dashboard-section">
+        <div class="gauge-container">
+          <svg class="gauge-svg" viewBox="0 0 100 100">
+            <circle class="gauge-bg" cx="50" cy="50" r="40" />
+            <circle class="gauge-fill" id="gaugeFill" cx="50" cy="50" r="40" 
+                    stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke="var(--text-muted)" />
+          </svg>
+          <div class="gauge-value">
+            <div class="gauge-score" id="gaugeScore">--</div>
+            <div class="gauge-label">Fraud Probability</div>
+          </div>
+        </div>
+
+        <div class="status-indicator" id="statusIndicator">
+          Awaiting transaction analysis
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-card">
+            <div class="chart-title">Transaction History</div>
+            <canvas class="chart-canvas" id="amountChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">API Latency</div>
+            <canvas class="chart-canvas" id="latencyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="response-panel">
+          <pre id="responseOutput">{ "status": "ready" }</pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      
+      // State
+      let amountHistory = [];
+      let latencyHistory = [];
+      let amountChart, latencyChart;
+      
+      // Elements
+      const userIdEl = $('userId');
+      const amountEl = $('amount');
+      const timestampEl = $('timestamp');
+      const apiKeyEl = $('apiKey');
+      const predictBtn = $('predictBtn');
+      const btnText = $('btnText');
+      const nowBtn = $('nowBtn');
+      const gaugeFill = $('gaugeFill');
+      const gaugeScore = $('gaugeScore');
+      const statusIndicator = $('statusIndicator');
+      const responseOutput = $('responseOutput');
+      const healthBadges = $('healthBadges');
+      const toastContainer = $('toastContainer');
+
+      // Initialize
+      timestampEl.value = new Date().toISOString();
+      initCharts();
+      loadHealth();
+
+      function initCharts() {
+        const chartOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: { 
+              display: true,
+              grid: { color: 'rgba(99, 179, 237, 0.05)' },
+              ticks: { color: 'rgba(148, 163, 184, 0.5)', font: { size: 10 } }
+            }
+          },
+          elements: {
+            line: { tension: 0.4 },
+            point: { radius: 3, hoverRadius: 5 }
+          },
+          animation: { duration: 500, easing: 'easeOutQuart' }
+        };
+
+        amountChart = new Chart($('amountChart'), {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [{
+              data: [],
+              borderColor: '#00d4aa',
+              backgroundColor: 'rgba(0, 212, 170, 0.1)',
+              fill: true,
+              borderWidth: 2
+            }]
+          },
+          options: chartOptions
+        });
+
+        latencyChart = new Chart($('latencyChart'), {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [{
+              data: [],
+              borderColor: '#63b3ed',
+              backgroundColor: 'rgba(99, 179, 237, 0.1)',
+              fill: true,
+              borderWidth: 2
+            }]
+          },
+          options: chartOptions
+        });
+      }
+
+      function updateCharts(amount, latency) {
+        const now = new Date().toLocaleTimeString();
+        
+        amountHistory.push(amount);
+        latencyHistory.push(latency);
+        
+        if (amountHistory.length > 10) amountHistory.shift();
+        if (latencyHistory.length > 10) latencyHistory.shift();
+        
+        const labels = Array.from({ length: amountHistory.length }, (_, i) => i + 1);
+        
+        amountChart.data.labels = labels;
+        amountChart.data.datasets[0].data = amountHistory;
+        amountChart.update();
+        
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = latencyHistory;
+        latencyChart.update();
+      }
+
+      function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+        
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(100px)';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      function updateGauge(score, isFraud) {
+        const circumference = 2 * Math.PI * 40;
+        const offset = circumference - (score * circumference);
+        
+        gaugeFill.style.strokeDashoffset = offset;
+        
+        if (score < 0.4) {
+          gaugeFill.style.stroke = '#00d4aa';
+          gaugeScore.style.color = '#00d4aa';
+        } else if (score < 0.7) {
+          gaugeFill.style.stroke = '#ffb454';
+          gaugeScore.style.color = '#ffb454';
+        } else {
+          gaugeFill.style.stroke = '#ff5c87';
+          gaugeScore.style.color = '#ff5c87';
+        }
+        
+        gaugeScore.textContent = `${(score * 100).toFixed(1)}%`;
+      }
+
+      function updateStatus(score, isFraud, threshold) {
+        statusIndicator.classList.add('visible');
+        
+        if (isFraud) {
+          statusIndicator.className = 'status-indicator status-fraud visible';
+          statusIndicator.innerHTML = `⚠️ FRAUD DETECTED<br><span style="font-size: 0.8rem; opacity: 0.8;">Threshold: ${(threshold * 100).toFixed(1)}%</span>`;
+        } else {
+          statusIndicator.className = 'status-indicator status-safe visible';
+          statusIndicator.innerHTML = `✓ Transaction Approved<br><span style="font-size: 0.8rem; opacity: 0.8;">Threshold: ${(threshold * 100).toFixed(1)}%</span>`;
+        }
+      }
+
+      function setLoading(loading) {
+        if (loading) {
+          predictBtn.disabled = true;
+          predictBtn.classList.add('btn-loading');
+          btnText.textContent = 'Analyzing...';
+          btnText.style.opacity = '0';
+        } else {
+          predictBtn.disabled = false;
+          predictBtn.classList.remove('btn-loading');
+          btnText.textContent = 'Analyze Transaction';
+          btnText.style.opacity = '1';
+        }
+      }
+
+      async function loadHealth() {
+        try {
+          const res = await fetch('/health');
+          const data = await res.json();
+          
+          const statusBadge = `<span class="badge ${data.status === 'ok' ? 'ok' : 'warn'}">Status: ${data.status}</span>`;
+          const modelBadge = `<span class="badge ${data.model_loaded ? 'ok' : 'warn'}">Model: ${data.model_source}</span>`;
+          const redisBadge = `<span class="badge ${data.redis_connected ? 'ok' : 'warn'}">Redis: ${data.redis_connected ? 'connected' : 'memory'}</span>`;
+          
+          healthBadges.innerHTML = statusBadge + modelBadge + redisBadge;
+        } catch (e) {
+          healthBadges.innerHTML = `<span class="badge error">Health check failed</span>`;
+        }
+      }
+
+      async function runPrediction() {
+        setLoading(true);
+        const startTime = performance.now();
+        
+        try {
+          const payload = {
+            user_id: userIdEl.value.trim(),
+            amount: Number(amountEl.value),
+            timestamp: timestampEl.value.trim()
+          };
+
+          const res = await fetch('/predict', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKeyEl.value.trim()
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const latency = Math.round(performance.now() - startTime);
+          const data = await res.json();
+          
+          responseOutput.textContent = JSON.stringify(data, null, 2);
+          
+          if (!res.ok) {
+            showToast(`Request failed: ${res.status}`, 'error');
+            setLoading(false);
+            return;
+          }
+
+          updateGauge(data.score, data.is_fraud);
+          updateStatus(data.score, data.is_fraud, data.threshold);
+          updateCharts(data.amount, latency);
+          
+          showToast(data.is_fraud ? 'Fraud detected!' : 'Transaction approved', data.is_fraud ? 'error' : 'success');
+          
+        } catch (e) {
+          showToast('Network error - check server connection', 'error');
+          responseOutput.textContent = JSON.stringify({ error: String(e) }, null, 2);
+        }
+        
+        setLoading(false);
+      }
+
+      // Event listeners
+      predictBtn.addEventListener('click', runPrediction);
+      nowBtn.addEventListener('click', () => {
+        timestampEl.value = new Date().toISOString();
+      });
+
+      // Allow enter key to submit
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey && document.activeElement.closest('.form-section')) {
+          e.preventDefault();
+          runPrediction();
+        }
+      });
+    </script>
+  </body>
+</html>
