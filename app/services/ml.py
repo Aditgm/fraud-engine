@@ -9,6 +9,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+RATIO_CAP = 20.0
+
 
 class FallbackModel:
     def predict_proba(self, data: pd.DataFrame) -> np.ndarray:
@@ -83,6 +85,8 @@ def compute_history_features(
         max_val = float(arr.max())
         count = float(arr.size)
 
+    raw_ratio = float(current_amount / (avg + 1e-6))
+
     return {
         "amount": float(current_amount),
         "txn_hour": float(txn_hour),
@@ -91,7 +95,7 @@ def compute_history_features(
         "std_amount_last_n": std,
         "min_amount_last_n": min_val,
         "max_amount_last_n": max_val,
-        "amount_to_avg_ratio": float(current_amount / (avg + 1e-6)),
+        "amount_to_avg_ratio": float(np.clip(raw_ratio, 0.0, RATIO_CAP)),
     }
 
 

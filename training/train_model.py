@@ -11,6 +11,8 @@ import pandas as pd
 from sklearn.metrics import classification_report, f1_score, precision_recall_curve
 from xgboost import XGBClassifier
 
+RATIO_CAP = 20.0
+
 FEATURE_COLUMNS = [
     "amount",
     "txn_hour",
@@ -129,7 +131,8 @@ def build_rolling_features(df: pd.DataFrame, window_size: int) -> pd.DataFrame:
     df["max_amount_last_n"] = rolling.max().reset_index(level=0, drop=True).fillna(0.0)
 
     df["txn_hour"] = df["timestamp"].dt.hour.astype(float)
-    df["amount_to_avg_ratio"] = df["amount"] / (df["avg_amount_last_n"] + 1e-6)
+    raw_ratio = df["amount"] / (df["avg_amount_last_n"] + 1e-6)
+    df["amount_to_avg_ratio"] = np.clip(raw_ratio, 0.0, RATIO_CAP)
 
     return df
 
