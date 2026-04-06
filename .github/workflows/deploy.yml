@@ -44,7 +44,7 @@ jobs:
         run: docker build -t fraud-engine:${{ github.sha }} .
 
   push-image:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
     needs: build-image
     runs-on: ubuntu-latest
     steps:
