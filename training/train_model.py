@@ -11,7 +11,6 @@ import pandas as pd
 from sklearn.metrics import classification_report, f1_score, precision_recall_curve
 from xgboost import XGBClassifier
 
-
 FEATURE_COLUMNS = [
     "amount",
     "txn_hour",
@@ -34,15 +33,21 @@ class TrainConfig:
 
 
 def parse_args() -> TrainConfig:
-    parser = argparse.ArgumentParser(description="Train streaming fraud model with rolling features")
+    parser = argparse.ArgumentParser(
+        description="Train streaming fraud model with rolling features"
+    )
     parser.add_argument("--data-path", required=True, help="Path to raw CSV data")
     parser.add_argument(
         "--model-output",
         default="artifacts/fraud_model.pkl",
         help="Output path for the serialized model artifact",
     )
-    parser.add_argument("--window-size", type=int, default=5, help="History window size")
-    parser.add_argument("--test-size", type=float, default=0.2, help="Temporal validation ratio")
+    parser.add_argument(
+        "--window-size", type=int, default=5, help="History window size"
+    )
+    parser.add_argument(
+        "--test-size", type=float, default=0.2, help="Temporal validation ratio"
+    )
     parser.add_argument(
         "--synthetic-users",
         type=int,
@@ -102,7 +107,9 @@ def standardize_columns(df: pd.DataFrame, synthetic_users: int) -> pd.DataFrame:
             df["timestamp"] = df["timestamp"].ffill().bfill()
 
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0)
-    df["is_fraud"] = pd.to_numeric(df["is_fraud"], errors="coerce").fillna(0).astype(int)
+    df["is_fraud"] = (
+        pd.to_numeric(df["is_fraud"], errors="coerce").fillna(0).astype(int)
+    )
 
     return df[["user_id", "timestamp", "amount", "is_fraud"]]
 
@@ -111,7 +118,9 @@ def build_rolling_features(df: pd.DataFrame, window_size: int) -> pd.DataFrame:
     df = df.sort_values(["user_id", "timestamp"]).reset_index(drop=True)
     grouped = df.groupby("user_id", sort=False)["amount"]
     prev_amount = grouped.shift(1)
-    rolling = prev_amount.groupby(df["user_id"]).rolling(window=window_size, min_periods=1)
+    rolling = prev_amount.groupby(df["user_id"]).rolling(
+        window=window_size, min_periods=1
+    )
 
     df["txn_count_last_n"] = rolling.count().reset_index(level=0, drop=True).fillna(0.0)
     df["avg_amount_last_n"] = rolling.mean().reset_index(level=0, drop=True).fillna(0.0)
@@ -125,7 +134,9 @@ def build_rolling_features(df: pd.DataFrame, window_size: int) -> pd.DataFrame:
     return df
 
 
-def temporal_split(df: pd.DataFrame, test_size: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+def temporal_split(
+    df: pd.DataFrame, test_size: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     split_idx = max(1, int(len(df) * (1 - test_size)))
     return df.iloc[:split_idx].copy(), df.iloc[split_idx:].copy()
 
@@ -136,7 +147,9 @@ def best_f1_threshold(y_true: np.ndarray, y_score: np.ndarray) -> tuple[float, f
         preds = (y_score >= 0.5).astype(int)
         return 0.5, float(f1_score(y_true, preds, zero_division=0))
 
-    f1_values = (2 * precision[:-1] * recall[:-1]) / (precision[:-1] + recall[:-1] + 1e-8)
+    f1_values = (2 * precision[:-1] * recall[:-1]) / (
+        precision[:-1] + recall[:-1] + 1e-8
+    )
     best_idx = int(np.nanargmax(f1_values))
     return float(thresholds[best_idx]), float(f1_values[best_idx])
 

@@ -8,9 +8,11 @@ from pydantic import BaseModel, Field, field_validator
 class TransactionRequest(BaseModel):
     user_id: str = Field(..., examples=["user_1234"])
     amount: float = Field(..., gt=0)
-    timestamp: datetime = Field(..., description="Transaction timestamp - will be coerced to UTC")
-    
-    @field_validator('timestamp')
+    timestamp: datetime = Field(
+        ..., description="Transaction timestamp - will be coerced to UTC"
+    )
+
+    @field_validator("timestamp")
     def enforce_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             # If no timezone provided, assume UTC

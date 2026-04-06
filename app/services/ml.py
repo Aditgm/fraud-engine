@@ -12,7 +12,9 @@ import pandas as pd
 
 class FallbackModel:
     def predict_proba(self, data: pd.DataFrame) -> np.ndarray:
-        base = np.clip((data["amount"] / 2000.0) + (data["amount_to_avg_ratio"] / 10.0), 0.0, 1.0)
+        base = np.clip(
+            (data["amount"] / 2000.0) + (data["amount_to_avg_ratio"] / 10.0), 0.0, 1.0
+        )
         probs = base.to_numpy(dtype=float)
         return np.column_stack([1.0 - probs, probs])
 
@@ -64,7 +66,9 @@ def load_model_artifact(model_path: str, model_s3_uri: str | None) -> tuple[dict
     return artifact, source
 
 
-def compute_history_features(amounts: list[float], current_amount: float, txn_hour: int) -> dict[str, float]:
+def compute_history_features(
+    amounts: list[float], current_amount: float, txn_hour: int
+) -> dict[str, float]:
     if not amounts:
         avg = 0.0
         std = 0.0
@@ -97,16 +101,18 @@ def predict(
 ) -> tuple[float, bool, float]:
     """
     Make a fraud prediction using the loaded model artifact
-    
+
     Returns:
         tuple of (score, is_fraud, threshold)
     """
     model = model_artifact["model"]
-    threshold = float(os.getenv("FRAUD_THRESHOLD", str(model_artifact.get("threshold", 0.5))))
+    threshold = float(
+        os.getenv("FRAUD_THRESHOLD", str(model_artifact.get("threshold", 0.5)))
+    )
     feature_columns = model_artifact["feature_columns"]
 
     model_input = pd.DataFrame([features])[feature_columns]
     score = float(model.predict_proba(model_input)[0, 1])
     is_fraud = score >= threshold
-    
+
     return score, is_fraud, threshold

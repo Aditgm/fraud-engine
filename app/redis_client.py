@@ -20,7 +20,9 @@ class InMemoryFeatureStore:
     async def get_recent_transactions(self, user_id: str) -> list[dict[str, Any]]:
         return list(self._store.get(user_id, []))
 
-    async def append_transaction(self, user_id: str, amount: float, timestamp: str) -> None:
+    async def append_transaction(
+        self, user_id: str, amount: float, timestamp: str
+    ) -> None:
         history = self._store.get(user_id, [])
         history.insert(0, {"amount": amount, "timestamp": timestamp})
         self._store[user_id] = history[: self.window_size]
@@ -30,7 +32,9 @@ class InMemoryFeatureStore:
 
 
 class RedisFeatureStore:
-    def __init__(self, url: str, window_size: int = 5, key_prefix: str = "fraud_history") -> None:
+    def __init__(
+        self, url: str, window_size: int = 5, key_prefix: str = "fraud_history"
+    ) -> None:
         self.url = url
         self.window_size = window_size
         self.key_prefix = key_prefix
@@ -53,7 +57,9 @@ class RedisFeatureStore:
         return f"{self.key_prefix}:{user_id}"
 
     async def get_recent_transactions(self, user_id: str) -> list[dict[str, Any]]:
-        raw_items = await self.client.lrange(self._key(user_id), 0, self.window_size - 1)
+        raw_items = await self.client.lrange(
+            self._key(user_id), 0, self.window_size - 1
+        )
         output: list[dict[str, Any]] = []
         for item in raw_items:
             try:
@@ -64,7 +70,9 @@ class RedisFeatureStore:
                 continue
         return output
 
-    async def append_transaction(self, user_id: str, amount: float, timestamp: str) -> None:
+    async def append_transaction(
+        self, user_id: str, amount: float, timestamp: str
+    ) -> None:
         payload = json.dumps({"amount": amount, "timestamp": timestamp})
         key = self._key(user_id)
 

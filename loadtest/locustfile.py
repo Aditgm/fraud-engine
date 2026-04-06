@@ -24,4 +24,6 @@ class FraudApiUser(HttpUser):
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        self.client.post("/predict", json=payload, headers=self.headers, name="/predict")
+        self.client.post(
+            "/predict", json=payload, headers=self.headers, name="/predict"
+        )

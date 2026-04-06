@@ -14,7 +14,6 @@ from app.redis_client import InMemoryFeatureStore, RedisFeatureStore
 from app.schemas import HealthResponse, PredictionResponse, TransactionRequest
 from app.services.ml import compute_history_features, load_model_artifact, predict
 
-
 REQUEST_COUNT = Counter("prediction_requests_total", "Total prediction requests")
 FRAUD_DETECTED = Counter("fraud_detected_total", "Total predicted fraud events")
 PREDICTION_LATENCY = Histogram(
@@ -24,15 +23,14 @@ PREDICTION_LATENCY = Histogram(
 )
 
 
-
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     window_size = int(os.getenv("REDIS_WINDOW_SIZE", "5"))
 
-    redis_store: RedisFeatureStore | InMemoryFeatureStore = RedisFeatureStore(url=redis_url, window_size=window_size)
+    redis_store: RedisFeatureStore | InMemoryFeatureStore = RedisFeatureStore(
+        url=redis_url, window_size=window_size
+    )
     try:
         await redis_store.connect()
         await redis_store.ping()
@@ -44,7 +42,9 @@ async def lifespan(app: FastAPI):
 
     model_path = os.getenv("MODEL_PATH", "artifacts/fraud_model.pkl")
     model_s3_uri = os.getenv("MODEL_S3_URI")
-    artifact, source = load_model_artifact(model_path=model_path, model_s3_uri=model_s3_uri)
+    artifact, source = load_model_artifact(
+        model_path=model_path, model_s3_uri=model_s3_uri
+    )
 
     app.state.model_artifact = artifact
     app.state.model_source = source
@@ -55,11 +55,18 @@ async def lifespan(app: FastAPI):
         await app.state.redis_store.close()
 
 
-app = FastAPI(title="Streaming Fraud Detection Engine", version="1.0.0", lifespan=lifespan, default_response_class=ORJSONResponse)
+app = FastAPI(
+    title="Streaming Fraud Detection Engine",
+    version="1.0.0",
+    lifespan=lifespan,
+    default_response_class=ORJSONResponse,
+)
 APP_DIR = Path(__file__).resolve().parent
 
 
-def verify_api_key(x_api_key: str | None = Header(default=None, alias="x-api-key")) -> None:
+def verify_api_key(
+    x_api_key: str | None = Header(default=None, alias="x-api-key")
+) -> None:
     expected_key = os.getenv("API_KEY", "local-dev-key")
     if not x_api_key or x_api_key != expected_key:
         raise HTTPException(
@@ -81,7 +88,9 @@ async def health() -> HealthResponse:
     except Exception:
         redis_ok = False
 
-    model_loaded = bool(app.state.model_artifact and "model" in app.state.model_artifact)
+    model_loaded = bool(
+        app.state.model_artifact and "model" in app.state.model_artifact
+    )
 
     return HealthResponse(
         status="ok" if model_loaded and redis_ok else "degraded",
@@ -91,7 +100,11 @@ async def health() -> HealthResponse:
     )
 
 
-@app.post("/predict", response_model=PredictionResponse, dependencies=[Depends(verify_api_key)])
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
 async def predict_endpoint(request: TransactionRequest) -> PredictionResponse:
     REQUEST_COUNT.inc()
     start = perf_counter()
@@ -133,4 +146,6 @@ async def predict_endpoint(request: TransactionRequest) -> PredictionResponse:
 
 @app.get("/metrics")
 async def metrics() -> PlainTextResponse:
-    return PlainTextResponse(generate_latest().decode("utf-8"), media_type=CONTENT_TYPE_LATEST)
+    return PlainTextResponse(
+        generate_latest().decode("utf-8"), media_type=CONTENT_TYPE_LATEST
+    )

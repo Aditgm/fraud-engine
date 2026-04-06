@@ -8,10 +8,20 @@ import pandas as pd
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate synthetic transaction data for fraud model training")
-    parser.add_argument("--output", default="artifacts/synthetic_transactions.csv", help="Output CSV path")
-    parser.add_argument("--rows", type=int, default=250_000, help="Number of transactions to generate")
-    parser.add_argument("--users", type=int, default=4_000, help="Number of synthetic users")
+    parser = argparse.ArgumentParser(
+        description="Generate synthetic transaction data for fraud model training"
+    )
+    parser.add_argument(
+        "--output",
+        default="artifacts/synthetic_transactions.csv",
+        help="Output CSV path",
+    )
+    parser.add_argument(
+        "--rows", type=int, default=250_000, help="Number of transactions to generate"
+    )
+    parser.add_argument(
+        "--users", type=int, default=4_000, help="Number of synthetic users"
+    )
     parser.add_argument("--days", type=int, default=365, help="History span in days")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     return parser.parse_args()
@@ -28,7 +38,9 @@ def make_dataset(rows: int, users: int, days: int, seed: int) -> pd.DataFrame:
     user_base = rng.lognormal(mean=0.1, sigma=0.35, size=users + 1)
     user_risk = rng.uniform(0.0, 1.0, size=users + 1)
 
-    timestamps = start + rng.integers(0, seconds_span, size=rows).astype("timedelta64[s]")
+    timestamps = start + rng.integers(0, seconds_span, size=rows).astype(
+        "timedelta64[s]"
+    )
     hours = (timestamps.astype("datetime64[h]").astype(int) % 24).astype(float)
 
     normal_amount = rng.lognormal(mean=3.1, sigma=0.8, size=rows)
